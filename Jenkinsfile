@@ -5,7 +5,7 @@ pipeline {
         APP_NAME = "loginapp"
         DOCKER_IMAGE = "${APP_NAME}:${BUILD_NUMBER}"
         DOCKER_LATEST = "${APP_NAME}:latest"
-        PORT = "8080"
+        PORT = "8087"
     }
     
     stages {
