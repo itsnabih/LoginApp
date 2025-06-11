@@ -9,7 +9,7 @@ pipeline {
     }
     
     stages {
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
                 // Explicit checkout dari branch main
                 checkout([
@@ -52,9 +52,10 @@ pipeline {
             steps {
                 script {
                     echo "🏗️  Building Docker image..."
+                    // Menggunakan sudo untuk menjalankan docker commands
                     sh """
-                        docker build -t ${DOCKER_IMAGE} .
-                        docker tag ${DOCKER_IMAGE} ${DOCKER_LATEST}
+                        sudo docker build -t ${DOCKER_IMAGE} .
+                        sudo docker tag ${DOCKER_IMAGE} ${DOCKER_LATEST}
                         echo "✅ Docker image built: ${DOCKER_IMAGE}"
                     """
                 }
@@ -67,7 +68,7 @@ pipeline {
                     echo "🧪 Testing container..."
                     sh """
                         # Start test container
-                        docker run --rm -d --name test-${BUILD_NUMBER} -p 8081:80 ${DOCKER_IMAGE}
+                        sudo docker run --rm -d --name test-${BUILD_NUMBER} -p 8081:80 ${DOCKER_IMAGE}
                         
                         # Wait for container to start
                         sleep 5
@@ -77,12 +78,12 @@ pipeline {
                             echo "✅ Container health check passed"
                         else
                             echo "❌ Container health check failed"
-                            docker logs test-${BUILD_NUMBER}
+                            sudo docker logs test-${BUILD_NUMBER}
                             exit 1
                         fi
                         
                         # Stop test container
-                        docker stop test-${BUILD_NUMBER}
+                        sudo docker stop test-${BUILD_NUMBER}
                     """
                 }
             }
@@ -94,11 +95,11 @@ pipeline {
                     echo "🚀 Deploying application..."
                     sh """
                         # Stop and remove old container if exists
-                        docker stop ${APP_NAME} || true
-                        docker rm ${APP_NAME} || true
+                        sudo docker stop ${APP_NAME} || true
+                        sudo docker rm ${APP_NAME} || true
                         
                         # Run new container
-                        docker run -d \\
+                        sudo docker run -d \\
                             --name ${APP_NAME} \\
                             -p ${PORT}:80 \\
                             --restart unless-stopped \\
@@ -106,12 +107,12 @@ pipeline {
                         
                         # Verify deployment
                         sleep 3
-                        if docker ps | grep ${APP_NAME} > /dev/null; then
+                        if sudo docker ps | grep ${APP_NAME} > /dev/null; then
                             echo "✅ Container is running"
-                            docker ps | grep ${APP_NAME}
+                            sudo docker ps | grep ${APP_NAME}
                         else
                             echo "❌ Container failed to start"
-                            docker logs ${APP_NAME}
+                            sudo docker logs ${APP_NAME}
                             exit 1
                         fi
                     """
@@ -130,7 +131,7 @@ pipeline {
                             echo "✅ Application is accessible at http://localhost:${PORT}"
                         else
                             echo "❌ Application is not accessible"
-                            docker logs ${APP_NAME}
+                            sudo docker logs ${APP_NAME}
                             exit 1
                         fi
                     """
@@ -155,11 +156,11 @@ pipeline {
             script {
                 sh """
                     echo "🔄 Attempting rollback..."
-                    docker stop ${APP_NAME} || true
-                    docker rm ${APP_NAME} || true
+                    sudo docker stop ${APP_NAME} || true
+                    sudo docker rm ${APP_NAME} || true
                     
-                    if docker images ${DOCKER_LATEST} -q | head -1; then
-                        docker run -d --name ${APP_NAME} -p ${PORT}:80 --restart unless-stopped ${DOCKER_LATEST}
+                    if sudo docker images ${DOCKER_LATEST} -q | head -1; then
+                        sudo docker run -d --name ${APP_NAME} -p ${PORT}:80 --restart unless-stopped ${DOCKER_LATEST}
                         echo "📦 Rollback attempted"
                     fi
                 """
@@ -168,7 +169,7 @@ pipeline {
         
         always {
             sh """
-                docker ps -a | grep test-${BUILD_NUMBER} | awk '{print \$1}' | xargs -r docker rm -f || true
+                sudo docker ps -a | grep test-${BUILD_NUMBER} | awk '{print \$1}' | xargs -r sudo docker rm -f || true
                 echo "🧹 Cleanup completed"
             """
         }
